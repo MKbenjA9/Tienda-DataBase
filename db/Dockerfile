@@ -2,9 +2,7 @@
 FROM mysql:8
 
 #hola funciona porfi
-#hola de nuevo
-#esto se agrega para testearr
-#hola
+#hola de nue# | volviendo a editar
 #de nuevo
 #holaaaaa
 #aqui cambios minimos

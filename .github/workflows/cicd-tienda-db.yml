@@ -23,22 +23,30 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Build, push y deploy DB vía EC2 SSM
+      - name: Crear archivo de comandos
         run: |
-          aws ssm send-command \
-            --instance-ids ${{ secrets.EC2_DB_INSTANCE_ID }} \
-            --document-name "AWS-RunShellScript" \
-            --comment "Build, push y deploy tienda-db desde EC2" \
-            --parameters '{"commands":[
+          cat > commands.json << 'EOF'
+          {
+            "commands": [
               "set -e",
               "cd /home/ec2-user/db",
-              "aws ecr get-login-password --region '${{ secrets.AWS_REGION }}' | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}",
+              "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 346014945832.dkr.ecr.us-east-1.amazonaws.com",
               "docker build -t tienda-db .",
-              "docker tag tienda-db:latest ${{ secrets.ECR_REPO_URL_DB }}:latest",
-              "docker push ${{ secrets.ECR_REPO_URL_DB }}:latest",
+              "docker tag tienda-db:latest 346014945832.dkr.ecr.us-east-1.amazonaws.com/tienda-database:latest",
+              "docker push 346014945832.dkr.ecr.us-east-1.amazonaws.com/tienda-database:latest",
               "docker stop tienda-db || true",
               "docker rm tienda-db || true",
-              "docker run -d --name tienda-db -p 3306:3306 -v dbdata:/var/lib/mysql ${{ secrets.ECR_REPO_URL_DB }}:latest"
-            ]}' \
+              "docker run -d --name tienda-db -p 3306:3306 -v dbdata:/var/lib/mysql 346014945832.dkr.ecr.us-east-1.amazonaws.com/tienda-database:latest"
+            ]
+          }
+          EOF
+
+      - name: Build, Push y Deploy DB vía SSM
+        run: |
+          aws ssm send-command \
+            --instance-ids ${{ secrets.EC2_DATA_INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Build, push y deploy tienda-db desde EC2" \
+            --parameters file://commands.json \
             --region ${{ secrets.AWS_REGION }} \
             --output text
