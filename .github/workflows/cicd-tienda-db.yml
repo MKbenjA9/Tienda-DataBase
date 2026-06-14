@@ -1,4 +1,4 @@
-name: CI/CD Tienda Perritos - DB
+name: CI Tienda Perritos - DB
 
 on:
   push:
@@ -8,45 +8,27 @@ on:
       - ".github/workflows/**"
 
 jobs:
-  build-push-deploy-db:
+  build-db:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout código
         uses: actions/checkout@v3
 
-      - name: Configurar credenciales AWS
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Crear archivo de comandos
+      - name: Verificar carpeta DB
         run: |
-          cat > commands.json << 'EOF'
-          {
-            "commands": [
-              "set -e",
-              "cd /home/ec2-user/db",
-              "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 346014945832.dkr.ecr.us-east-1.amazonaws.com",
-              "docker build -t tienda-db .",
-              "docker tag tienda-db:latest 346014945832.dkr.ecr.us-east-1.amazonaws.com/tienda-database:latest",
-              "docker push 346014945832.dkr.ecr.us-east-1.amazonaws.com/tienda-database:latest",
-              "docker stop tienda-db || true",
-              "docker rm tienda-db || true",
-              "docker run -d --name tienda-db -p 3306:3306 -v dbdata:/var/lib/mysql 346014945832.dkr.ecr.us-east-1.amazonaws.com/tienda-database:latest"
-            ]
-          }
-          EOF
+          ls
+          test -d db
 
-      - name: Build, Push y Deploy DB vía SSM
+      - name: Verificar Dockerfile
         run: |
-          aws ssm send-command \
-            --instance-ids ${{ secrets.EC2_DATA_INSTANCE_ID }} \
-            --document-name "AWS-RunShellScript" \
-            --comment "Build, push y deploy tienda-db desde EC2" \
-            --parameters file://commands.json \
-            --region ${{ secrets.AWS_REGION }} \
-            --output text
+          test -f db/Dockerfile
+
+      - name: Build imagen DB
+        run: |
+          cd db
+          docker build -t tienda-db .
+
+      - name: Ver imágenes Docker
+        run: |
+          docker images
