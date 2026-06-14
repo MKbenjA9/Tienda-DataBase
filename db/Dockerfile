@@ -1,7 +1,7 @@
 # Imagen base MySQL 8 oficial
 FROM mysql:8
 
-
+#hola funciona porfi
 #esto se agrega para testearr
 #hola
 #de nuevo
