@@ -1,6 +1,6 @@
 # Imagen base MySQL 8 oficial
 FROM mysql:8
-
+#AKSADJSADIO
 #hola funciona porfi
 #hola de nue# | volviendo a editar
 #de nuevo
