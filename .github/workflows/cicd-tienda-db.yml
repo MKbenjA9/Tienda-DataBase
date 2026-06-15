@@ -5,7 +5,6 @@ on:
     branches: [ "main" ]
     paths:
       - "db/**"
-      - ".github/workflows/**"
 
 jobs:
   build-push-deploy-db:
@@ -33,25 +32,22 @@ jobs:
 
       - name: Tag imagen Database
         run: |
-          docker tag tienda-db:latest ${{ secrets.ECR_REPO_URL_DB }}:latest
+          docker tag tienda-db:latest ${{ secrets.ECR_REPO_URL_DATA }}:latest
 
       - name: Push imagen Database a ECR
         run: |
-          docker push ${{ secrets.ECR_REPO_URL_DB }}:latest
+          docker push ${{ secrets.ECR_REPO_URL_DATA }}:latest
 
       - name: Desplegar Database vía SSM
         run: |
           aws ssm send-command \
-            --instance-ids ${{ secrets.EC2_DB_INSTANCE_ID }} \
+            --instance-ids ${{ secrets.EC2_DATA_INSTANCE_ID }} \
             --document-name "AWS-RunShellScript" \
-            --comment "Actualizar tienda-db desde ECR" \
             --parameters '{"commands":[
-              "set -e",
-              "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 346014945832.dkr.ecr.us-east-1.amazonaws.com",
-              "docker pull 346014945832.dkr.ecr.us-east-1.amazonaws.com/tienda-database:latest",
+              "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin '${{ secrets.ECR_REGISTRY }}'",
+              "docker pull '${{ secrets.ECR_REPO_URL_DATA }}':latest",
               "docker stop tienda-db || true",
               "docker rm tienda-db || true",
-              "docker run -d --name tienda-db -p 3306:3306 -v dbdata:/var/lib/mysql 346014945832.dkr.ecr.us-east-1.amazonaws.com/tienda-database:latest"
+              "docker run -d --name tienda-db -p 3306:3306 '${{ secrets.ECR_REPO_URL_DATA }}':latest"
             ]}' \
-            --region ${{ secrets.AWS_REGION }} \
-            --output text
+            --region ${{ secrets.AWS_REGION }}
