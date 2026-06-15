@@ -1,4 +1,4 @@
-name: CI Tienda Perritos - DB
+name: CI/CD Tienda Perritos - Database
 
 on:
   push:
@@ -8,27 +8,50 @@ on:
       - ".github/workflows/**"
 
 jobs:
-  build-db:
+  build-push-deploy-db:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout código
         uses: actions/checkout@v3
 
-      - name: Verificar carpeta DB
-        run: |
-          ls
-          test -d db
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Verificar Dockerfile
-        run: |
-          test -f db/Dockerfile
+      - name: Login en Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build imagen DB
+      - name: Build imagen Database
         run: |
           cd db
           docker build -t tienda-db .
 
-      - name: Ver imágenes Docker
+      - name: Tag imagen Database
         run: |
-          docker images
+          docker tag tienda-db:latest ${{ secrets.ECR_REPO_URL_DB }}:latest
+
+      - name: Push imagen Database a ECR
+        run: |
+          docker push ${{ secrets.ECR_REPO_URL_DB }}:latest
+
+      - name: Desplegar Database vía SSM
+        run: |
+          aws ssm send-command \
+            --instance-ids ${{ secrets.EC2_DB_INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Actualizar tienda-db desde ECR" \
+            --parameters '{"commands":[
+              "set -e",
+              "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 346014945832.dkr.ecr.us-east-1.amazonaws.com",
+              "docker pull 346014945832.dkr.ecr.us-east-1.amazonaws.com/tienda-database:latest",
+              "docker stop tienda-db || true",
+              "docker rm tienda-db || true",
+              "docker run -d --name tienda-db -p 3306:3306 -v dbdata:/var/lib/mysql 346014945832.dkr.ecr.us-east-1.amazonaws.com/tienda-database:latest"
+            ]}' \
+            --region ${{ secrets.AWS_REGION }} \
+            --output text
