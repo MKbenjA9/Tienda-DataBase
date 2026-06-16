@@ -5,6 +5,7 @@ on:
     branches: [ "main" ]
     paths:
       - "db/**"
+      - ".github/workflows/**"
 
 jobs:
   build-push-deploy-db:
@@ -48,6 +49,7 @@ jobs:
               "docker pull '${{ secrets.ECR_REPO_URL_DATA }}':latest",
               "docker stop tienda-db || true",
               "docker rm tienda-db || true",
-              "docker run -d --name tienda-db -p 3306:3306 '${{ secrets.ECR_REPO_URL_DATA }}':latest"
+              "docker run -d --name tienda-db -p 3306:3306 -v dbdata:/var/lib/mysql '${{ secrets.ECR_REPO_URL_DATA }}':latest"
             ]}' \
-            --region ${{ secrets.AWS_REGION }}
+            --region ${{ secrets.AWS_REGION }} \
+            --output text
